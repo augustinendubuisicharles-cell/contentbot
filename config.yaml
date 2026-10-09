@@ -76,6 +76,7 @@ platforms:
   facebook: true
   instagram: true
   tiktok: true
+  telegram: true                 # send the finished video to your Telegram (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
 
 tiktok:
   # "draft": video goes to your TikTok inbox and you tap to publish (works before TikTok's audit).

@@ -1,7 +1,7 @@
 name: Make campaign clips
 
 # Run from the Actions tab (or the GitHub app): paste a clipping campaign's video link and its brief.
-# The clips come back as a release on this repo, so you can download them straight to your phone.
+# The clips arrive in your Telegram (or, without Telegram set up, as a release on this repo).
 on:
   workflow_dispatch:
     inputs:
@@ -28,6 +28,8 @@ jobs:
   clip:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      HAS_TELEGRAM: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -47,6 +49,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           URL: ${{ inputs.url }}
           BRIEF: ${{ inputs.brief }}
           NAME: ${{ inputs.name }}
@@ -58,7 +62,9 @@ jobs:
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
           cat "$DIR/post.md" >> "$GITHUB_STEP_SUMMARY"
 
+      # Without Telegram set up, the clips go to a release on this repo instead (public on a public repo).
       - name: Publish clips for download
+        if: env.HAS_TELEGRAM != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           NAME: ${{ inputs.name }}

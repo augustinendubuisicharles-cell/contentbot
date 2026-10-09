@@ -6,7 +6,8 @@
 Steps: download the campaign's video, transcribe it with word timings (faster-whisper, free, runs on CPU),
 ask Claude for the best self-contained moments that fit the brief, then cut each one to 9:16 with
 burned-in captions, an on-screen hook and the ad disclosure. Writes clipNN.mp4, clips.json and post.md
-(the caption to paste for each clip) to out/clips/<date>-<name>/.
+(the caption to paste for each clip) to out/clips/<date>-<name>/, and sends each clip to Telegram when
+TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set.
 
 Posting and submitting the links to Whop or Vyro stay with you: their sites have no submission API
 for clippers, and only use footage the campaign gives you permission to clip.
@@ -25,6 +26,7 @@ import anthropic
 from pydantic import BaseModel, Field
 
 from .config import OUT, env, load_config, load_dotenv
+from .publish import telegram
 from .video import _ass_time, _run
 
 log = logging.getLogger("contentbot.clips")
@@ -244,7 +246,22 @@ def make_clips(url: str, brief: str, name: str, count: int, layout: str, cfg: di
                  "then submit each post link on the campaign page.\n")
     (run_dir / "clips.json").write_text(json.dumps(results, indent=2))
     (run_dir / "post.md").write_text("\n".join(notes))
+    if telegram.configured():
+        send_to_telegram(run_dir, name, results)
     return run_dir
+
+
+def send_to_telegram(run_dir: Path, name: str, results: list[dict]) -> None:
+    """Each clip arrives as a video with its hook, followed by the caption to paste."""
+    try:
+        telegram.send_text(f"{len(results)} new clips for {name}. Post each one, add a trending sound in the app if the "
+                           f"brief asks for one, then submit the post links on the campaign page.")
+    except Exception as e:  # never lose the clips because Telegram is down
+        log.warning("Telegram: %s", e)
+        return
+    for i, r in enumerate(results, 1):
+        res = telegram.send_video(run_dir / r["file"], f"{i}/{len(results)}: {r['hook']}", r["caption"])
+        log.info("Telegram %s: %s", r["file"], "sent" if res.ok else res.error)
 
 
 def main(argv=None) -> int:
