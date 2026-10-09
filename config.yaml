@@ -40,11 +40,10 @@ sources:
     - https://www.theguardian.com/world/rss
     - https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en
     - https://techcrunch.com/feed/
-    - https://www.theverge.com/rss/index.xml
-  reddit:                        # public JSON, no key needed
-    - worldnews
-    - news
-    - technology
+    - https://feeds.arstechnica.com/arstechnica/index
+  # Reddit blocks requests from GitHub Actions servers, so it's off by default.
+  # Add subreddit names here if you run ContentBot from your own machine.
+  reddit: []
   x:
     # Needs X_BEARER_TOKEN (X API Basic tier or above). Skipped when unset.
     queries:

@@ -85,7 +85,9 @@ def _claude_script(stories: list[Story], cfg: dict, edition: str, date_str: str)
         max_tags=cfg["growth"]["max_hashtags"],
         stories=_story_block(stories),
     )
-    client = anthropic.Anthropic()
+    # Keys that aren't scoped to a workspace need the workspace named on each request.
+    workspace = env("ANTHROPIC_WORKSPACE_ID")
+    client = anthropic.Anthropic(default_headers={"anthropic-workspace-id": workspace} if workspace else None)
     response = client.messages.parse(
         model=wcfg["model"],
         max_tokens=16000,
