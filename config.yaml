@@ -1,0 +1,69 @@
+# ContentBot configuration. Secrets never go here: they come from environment
+# variables (see .env.example) or GitHub Actions secrets.
+
+brand:
+  name: "Daily Brief"            # shown on every frame of the video
+  handle: "@yourhandle"          # shown in the outro card
+  accent_color: "#E63946"
+
+# Your local time zone. Used for the date on screen and for the posting report.
+# The GitHub Actions schedule itself is in UTC; see README "Schedule".
+timezone: "UTC"
+
+editions:
+  morning:
+    lookback_hours: 12           # overnight news
+    greeting: "Good morning"
+  evening:
+    lookback_hours: 12           # the day's news
+    greeting: "Good evening"
+
+video:
+  max_seconds: 60
+  stories: 5                     # stories per report
+  width: 1080
+  height: 1920
+  fps: 30
+  voice: "en-US-GuyNeural"       # any edge-tts voice, e.g. en-GB-RyanNeural, en-NG-AbeoNeural
+  background_music: ""           # optional path to a royalty-free track, mixed quietly under the voice
+
+writer:
+  model: "claude-opus-5-5"
+  effort: "low"                  # summarising headlines does not need deep thinking
+
+sources:
+  # Any RSS/Atom feed works: news sites, blogs, newsletters, YouTube channels.
+  rss:
+    - https://feeds.bbci.co.uk/news/world/rss.xml
+    - https://www.aljazeera.com/xml/rss/all.xml
+    - https://feeds.npr.org/1001/rss.xml
+    - https://www.theguardian.com/world/rss
+    - https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en
+    - https://techcrunch.com/feed/
+    - https://www.theverge.com/rss/index.xml
+  reddit:                        # public JSON, no key needed
+    - worldnews
+    - news
+    - technology
+  x:
+    # Needs X_BEARER_TOKEN (X API Basic tier or above). Skipped when unset.
+    queries:
+      - "breaking news -is:retweet lang:en"
+    min_likes: 200
+  trends:
+    # Google Trends daily trending searches; stories matching a trend get boosted.
+    geo: "US"
+
+images:
+  # Only openly licensed images (Creative Commons / public domain) from
+  # Openverse and Wikimedia Commons. Credits go in every post description.
+  commercial_only: true
+
+platforms:
+  youtube: true
+  facebook: true
+  instagram: true
+
+growth:
+  first_comment: true            # post a sources + discussion-question comment on FB and IG
+  max_hashtags: 8

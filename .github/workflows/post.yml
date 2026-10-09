@@ -1,0 +1,94 @@
+name: Post news report
+
+on:
+  schedule:
+    # Times are UTC. Set these to your morning and evening in your own time zone.
+    # Example for 07:00 and 19:00 in UTC+1: "0 6 * * *" and "0 18 * * *".
+    - cron: "0 6 * * *"    # morning edition
+    - cron: "0 18 * * *"   # evening edition
+    - cron: "30 23 * * 0"  # weekly performance report (Sunday)
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: "morning, evening, or report"
+        default: "morning"
+      dry_run:
+        description: "Build the video without posting"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # to commit data/posts.jsonl and data/report.md back
+
+concurrency:
+  group: contentbot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - run: pip install -r requirements.txt
+
+      - name: Pick edition
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "edition=${{ inputs.edition }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 6 * * *" ]; then
+            echo "edition=morning" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 18 * * *" ]; then
+            echo "edition=evening" >> "$GITHUB_OUTPUT"
+          else
+            echo "edition=report" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and post
+        if: steps.pick.outputs.edition != 'report'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+          META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
+        run: |
+          python -m contentbot run --edition "${{ steps.pick.outputs.edition }}" \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Performance report
+        if: steps.pick.outputs.edition == 'report'
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+          META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
+        run: python -m contentbot report
+
+      - name: Keep the video as a download
+        if: always() && steps.pick.outputs.edition != 'report'
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-${{ steps.pick.outputs.edition }}-${{ github.run_id }}
+          path: out/**/report.mp4
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Save post log
+        if: always()
+        run: |
+          git config user.name "contentbot"
+          git config user.email "contentbot@users.noreply.github.com"
+          git add data/ || true
+          git diff --cached --quiet || (git commit -m "Update post log" && git push)
