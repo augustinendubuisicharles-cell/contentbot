@@ -22,7 +22,8 @@ from . import PostResult
 log = logging.getLogger(__name__)
 API = "https://open.tiktokapis.com/v2"
 TOKEN_FILE = DATA / ".tiktok_token.json"
-SCOPES = "user.info.basic,video.upload,video.publish"
+# video.publish (direct posting) is only needed for tiktok.mode "direct"; add it back after TikTok approves the app.
+SCOPES = "user.info.basic,video.upload"
 
 
 def configured() -> bool:
