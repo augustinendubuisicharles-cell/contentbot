@@ -84,7 +84,9 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: report-${{ steps.pick.outputs.edition }}-${{ github.run_id }}
-          path: out/**/report.mp4
+          path: |
+            out/**/report.mp4
+            out/**/script.json
           retention-days: 7
           if-no-files-found: ignore
 

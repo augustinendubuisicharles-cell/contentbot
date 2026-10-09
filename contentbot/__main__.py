@@ -141,7 +141,9 @@ def main(argv=None) -> int:
         edition = "morning" if datetime.now(ZoneInfo(cfg["timezone"])).hour < 14 else "evening"
     built = build(cfg, edition)
     if args.dry_run:
-        print(json.dumps({"video": str(built["video"]), "title": built["script"].captions.youtube_title}, indent=2))
+        sc = built["script"]
+        print(json.dumps({"video": str(built["video"]), "title": sc.captions.youtube_title,
+                          "narration": [sc.intro, *[seg.narration for seg in sc.segments], sc.outro]}, indent=2))
         return 0
     only = {p.strip() for p in args.platforms.split(",") if p.strip()} or None
     results = publish(cfg, built, only)

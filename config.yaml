@@ -24,12 +24,17 @@ video:
   width: 1080
   height: 1920
   fps: 30
-  voice: "en-US-GuyNeural"       # any edge-tts voice, e.g. en-GB-RyanNeural, en-NG-AbeoNeural
+  voice: "en-GB-SoniaNeural"     # any edge-tts voice, e.g. en-GB-RyanNeural, en-NG-AbeoNeural, en-US-GuyNeural
   background_music: ""           # optional path to a royalty-free track, mixed quietly under the voice
 
 writer:
   model: "claude-opus-5-5"
-  effort: "low"                  # summarising headlines does not need deep thinking
+  effort: "medium"               # a little more thought for the jokes to land
+  style: >-
+    Witty, warm and gripping, like a sharp British presenter who loves the news and doesn't take
+    herself too seriously. Open with a hook that makes people stop scrolling. Give each story a
+    punchy first line, and add a dry, clever quip, wordplay or wry observation where it fits so
+    viewers smile or laugh. Keep it conversational and quick, British spelling and phrasing.
 
 sources:
   # Any RSS/Atom feed works: news sites, blogs, newsletters, YouTube channels.

@@ -42,8 +42,11 @@ Date: {date}. Greeting: "{greeting}".
 
 Pick the {n} most important and interesting stories below (prefer stories covered by several outlets, and those marked TRENDING), and write:
 - a spoken script that fits in {seconds} seconds total (about {words} words across intro, segments and outro),
-- neutral, factual wording; never state anything that isn't in the material; attribute claims ("Reuters reports...") when contested,
+- facts exactly as reported: never state anything that isn't in the material, and attribute contested claims ("Reuters reports..."),
 - captions for each platform, and up to {max_tags} hashtags.
+
+Voice and tone: {style}
+Read the room: stories involving deaths, violence, disasters, abuse or serious illness are told straight and with respect, with no jokes about them or the people affected. Save the humour for the lighter stories, the absurd details, and the links between segments. Never mock someone for who they are.
 
 Stories (ranked):
 {stories}"""
@@ -79,6 +82,7 @@ def _claude_script(stories: list[Story], cfg: dict, edition: str, date_str: str)
         edition=edition,
         date=date_str,
         greeting=cfg["editions"][edition]["greeting"],
+        style=wcfg.get("style", "Clear and neutral."),
         n=vcfg["stories"],
         seconds=vcfg["max_seconds"] - 4,
         words=int((vcfg["max_seconds"] - 4) * 2.5),
