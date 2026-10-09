@@ -147,7 +147,9 @@ def main(argv=None) -> int:
     results = publish(cfg, built, only)
     for r in results:
         print(f"{r.platform}: {'posted ' + r.url if r.ok else 'FAILED ' + r.error}")
-    return 0 if results and all(r.ok for r in results) else 1
+    if not results:
+        log.warning("No platform credentials set; the video was built but not posted")
+    return 0 if all(r.ok for r in results) else 1
 
 
 if __name__ == "__main__":
