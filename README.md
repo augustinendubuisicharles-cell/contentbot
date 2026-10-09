@@ -53,6 +53,13 @@ Built in:
 Not built, on purpose: fake accounts, bought or bot likes, views or follows, and automated comments
 on other people's posts. YouTube and Meta detect these and restrict or ban accounts, which would undo all of this.
 
+## Your own voice
+
+Put a 1-2 minute recording of yourself (any common audio format) in `assets/voice/`, and add an
+`ELEVENLABS_API_KEY` secret. The first run turns it into an ElevenLabs voice and saves its id in
+`data/voice.json`; every video after that is narrated in your voice. To use a voice you already made
+on elevenlabs.io instead, set `ELEVENLABS_VOICE_ID`. Keep the repo private if it holds your recording.
+
 ## Configuration
 
 Everything else is in `config.yaml`: brand name and colour, time zone, sources, stories per video,
