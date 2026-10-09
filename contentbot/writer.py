@@ -84,8 +84,8 @@ def _claude_script(stories: list[Story], cfg: dict, edition: str, date_str: str)
         greeting=cfg["editions"][edition]["greeting"],
         style=wcfg.get("style", "Clear and neutral."),
         n=vcfg["stories"],
-        seconds=vcfg["max_seconds"] - 4,
-        words=int((vcfg["max_seconds"] - 4) * 2.5),
+        seconds=vcfg["max_seconds"] - 8,
+        words=int((vcfg["max_seconds"] - 8) * 2.2),
         max_tags=cfg["growth"]["max_hashtags"],
         stories=_story_block(stories),
     )
