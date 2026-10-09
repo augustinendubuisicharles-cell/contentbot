@@ -1,0 +1,7 @@
+# Just what the clipping tool needs (python -m contentbot.clips); much smaller than requirements.txt.
+anthropic>=1.12
+pydantic>=2.6
+pyyaml>=6.0
+pillow>=10.1
+faster-whisper>=1.1
+yt-dlp>=2025.1.1

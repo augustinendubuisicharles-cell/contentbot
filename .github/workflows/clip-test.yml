@@ -1,0 +1,45 @@
+name: Clip tool test (temporary)
+on:
+  push:
+    branches: [claude/project-thread-281zow]
+    paths: [contentbot/clips.py, .github/workflows/clip-test.yml]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core espeak-ng
+      - run: pip install -r requirements-clips.txt
+      - name: Build a talking test video
+        run: |
+          cat > talk.txt <<'TXT'
+          Welcome back to the show. Today we are talking about money, habits and the one mistake that cost me ten thousand pounds.
+          So here is the story. Three years ago I signed up for every subscription you can imagine. Music, films, gyms, apps I never opened.
+          One day I added it all up. It came to four hundred pounds a month. Four hundred! For things I did not even use.
+          That was the moment I made one simple rule. If I have not used something in thirty days, it goes. No exceptions.
+          Within a year I had saved almost five thousand pounds, and honestly I did not miss a single thing.
+          Now let me tell you the second lesson, which is even more surprising. Most people think you need a big salary to build wealth.
+          You do not. The people I know who are richest are not the ones who earn the most. They are the ones who spend the least on things that do not matter.
+          A friend of mine earns half what I do and has twice the savings. Why? She cooks at home, she buys second hand, and she never ever pays for delivery.
+          And here is the final tip, the one that changed everything. Pay yourself first. The day your salary lands, move ten percent into savings before you spend a penny.
+          You will not notice it is gone, and in ten years you will thank yourself. That is it for today. Thanks for watching, and I will see you next week.
+          TXT
+          espeak-ng -v en-gb -s 150 -f talk.txt -w talk.wav
+          ffmpeg -y -loglevel error -f lavfi -i testsrc2=size=1280x720:rate=30 -i talk.wav -shortest -c:v libx264 -c:a aac talk.mp4
+      - name: Make clips
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+        run: |
+          DIR=$(python -m contentbot.clips --url talk.mp4 --brief "Clip the best money tips. Tag @moneyshow in every caption. No swearing." --name "test money" --count 2 --layout blur | tail -1)
+          cat "$DIR/post.md"; cat "$DIR/clips.json"
+          for f in "$DIR"/clip*.mp4; do ffprobe -v error -show_entries format=duration:stream=width,height -of csv=p=0 "$f"; done
+          echo "DIR=$DIR" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: test-clips
+          path: ${{ env.DIR }}/clip*.mp4

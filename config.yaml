@@ -87,3 +87,16 @@ tiktok:
 growth:
   first_comment: true            # post a sources + discussion-question comment on FB and IG
   max_hashtags: 8
+
+clips:
+  # Paid clipping campaigns (Whop Content Rewards, Vyro): python -m contentbot.clips, or the
+  # "Make campaign clips" workflow. Only clip footage the campaign gives you permission to use.
+  count: 5                       # clips per run
+  min_seconds: 20
+  max_seconds: 60
+  layout: "blur"                 # blur: whole frame over a blurred fill; crop: fill the screen with the middle
+  disclosure: "#ad"              # added to every caption; most campaign briefs require it
+  on_screen_label: "#ad"         # small label in the corner of the video; set to "" to hide
+  whisper_model: "base"          # free speech-to-text: tiny, base, small (slower, more accurate)
+  max_source_minutes: 120        # only the first part of very long videos is transcribed
+  effort: "medium"
