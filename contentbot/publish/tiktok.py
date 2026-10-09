@@ -106,12 +106,11 @@ def post(video: Path, caption: str, mode: str = "draft") -> PostResult:
             try:
                 init = _check(requests.post(f"{API}/post/publish/video/init/", headers=headers, json=body, timeout=60))
             except RuntimeError as e:
-                if "unaudited" not in str(e) or privacy == "SELF_ONLY":
+                if "unaudited" not in str(e):
                     raise
-                # Until TikTok audits the app, direct posts must be private ("Only me").
-                log.warning("TikTok app not audited yet; posting as 'Only me'")
-                body["post_info"]["privacy_level"] = "SELF_ONLY"
-                init = _check(requests.post(f"{API}/post/publish/video/init/", headers=headers, json=body, timeout=60))
+                # Until TikTok audits the app it can only post to private accounts: use the inbox instead.
+                log.warning("TikTok app not audited yet (%s); sending to inbox", e)
+                return post(video, caption, "draft")
         else:
             init = _check(requests.post(f"{API}/post/publish/inbox/video/init/", headers=headers,
                                         json={"source_info": source}, timeout=60))
