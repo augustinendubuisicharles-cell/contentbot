@@ -9,3 +9,5 @@ python-dateutil>=2.9
 google-api-python-client>=2.120
 google-auth>=2.28
 google-auth-oauthlib>=1.2
+kokoro>=0.9.4
+soundfile>=0.12

@@ -114,14 +114,58 @@ def _elevenlabs(text: str, dest: Path) -> bool:
         return False
 
 
-def speak(text: str, voice: str, dest: Path) -> Path:
+_kokoro_pipeline = None
+
+
+def _kokoro(text: str, voice: str, speed: float, dest: Path) -> list[dict] | None:
+    """Kokoro: a free, open-source neural voice that runs on the machine itself and sounds
+    far more natural than cloud text-to-speech. Returns word timings, or None if unavailable."""
+    global _kokoro_pipeline
+    try:
+        import numpy as np
+        import soundfile as sf
+        from kokoro import KPipeline
+    except ImportError:
+        return None
+    try:
+        if _kokoro_pipeline is None:
+            # Voice names start with the accent: "b" = British English, "a" = American English.
+            _kokoro_pipeline = KPipeline(lang_code=voice[0], repo_id="hexgrad/Kokoro-82M")
+        chunks, words, offset = [], [], 0.0
+        for result in _kokoro_pipeline(text, voice=voice, speed=speed):
+            if result.audio is None:
+                continue
+            audio = result.audio.detach().cpu().numpy()
+            for tok in result.tokens or []:
+                if tok.start_ts is None or tok.end_ts is None or not any(c.isalnum() for c in tok.text):
+                    continue
+                words.append({"word": tok.text, "start": offset + tok.start_ts, "end": offset + tok.end_ts})
+            chunks.append(audio)
+            offset += len(audio) / 24000
+        if not chunks:
+            return None
+        wav = dest.with_suffix(".wav")
+        sf.write(wav, np.concatenate(chunks), 24000)
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(wav), "-b:a", "160k", str(dest)], check=True)
+        return words
+    except Exception as e:  # model download or inference problems: fall back to edge-tts
+        log.warning("Kokoro failed (%s); falling back to edge-tts", e)
+        return None
+
+
+def speak(text: str, voice: str, dest: Path, kokoro_voice: str = "", speed: float = 1.0) -> Path:
     """Write narration audio for `text` to `dest` (.mp3) and return the path.
 
-    Uses your own ElevenLabs voice when ELEVENLABS_API_KEY is set, otherwise edge-tts.
+    Order: your own ElevenLabs voice (if a key is set), then Kokoro, then edge-tts.
     """
     if _elevenlabs(text, dest):
         return dest
     timings_path(dest).unlink(missing_ok=True)
+    if kokoro_voice:
+        words = _kokoro(text, kokoro_voice, speed, dest)
+        if words is not None:
+            timings_path(dest).write_text(json.dumps(words))
+            return dest
     try:
         words = asyncio.run(_edge(text, voice, dest))
         if dest.exists() and dest.stat().st_size > 0:

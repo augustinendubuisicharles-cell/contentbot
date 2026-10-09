@@ -39,13 +39,14 @@ def build(cfg: dict, edition: str) -> dict:
     script = write_script(stories, cfg, edition, date_str)
     (run_dir / "script.json").write_text(script.model_dump_json(indent=2))
 
-    voice = cfg["video"]["voice"]
+    vcfg = cfg["video"]
+    voice = vcfg["voice"]
     used: set[str] = set()
     scenes: list[Scene] = []
     credits: list[str] = []
 
     def narrate(text: str, name: str) -> tuple[str, Path]:
-        return text, speak(text, voice, run_dir / name)
+        return text, speak(text, voice, run_dir / name, vcfg.get("kokoro_voice", ""), vcfg.get("speed", 1.0))
 
     # Cold open: the hook comes before any greeting.
     text, audio = narrate(f"{script.hook} {script.welcome}", "a00.mp3")

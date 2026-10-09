@@ -26,7 +26,13 @@ video:
   width: 1080
   height: 1920
   fps: 30
-  voice: "en-GB-SoniaNeural"     # any edge-tts voice, e.g. en-GB-RyanNeural, en-NG-AbeoNeural, en-US-GuyNeural
+  # Main voice: Kokoro, free and natural-sounding, runs on the GitHub server.
+  # British: bf_emma, bf_isabella, bf_alice, bf_lily (female), bm_george, bm_fable, bm_lewis (male).
+  # American: af_heart, af_bella, am_michael. Leave empty to use the backup voice only.
+  kokoro_voice: "bf_emma"
+  speed: 1.05
+  # Backup voice if Kokoro isn't available: any edge-tts voice.
+  voice: "en-GB-SoniaNeural"
   background_music: ""           # optional path to a royalty-free track, mixed quietly under the voice
 
 writer:
