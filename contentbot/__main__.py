@@ -144,6 +144,8 @@ def main(argv=None) -> int:
     run.add_argument("--platforms", default="", help="comma list to limit posting, e.g. youtube,instagram")
     sub.add_parser("report", help="fetch post stats and write data/report.md")
     sub.add_parser("tiktok-url", help="print the TikTok sign-in link")
+    tc = sub.add_parser("tiktok-check", help="show the connected TikTok account and an upload's status")
+    tc.add_argument("--publish-id", default="")
     ta = sub.add_parser("tiktok-auth", help="connect TikTok with the code from the sign-in page")
     ta.add_argument("--code", required=True)
     args = ap.parse_args(argv)
@@ -157,6 +159,9 @@ def main(argv=None) -> int:
     if args.cmd == "tiktok-url":
         print(tiktok.auth_url(redirect))
         return 0
+    if args.cmd == "tiktok-check":
+        tiktok.check(args.publish_id)
+        return
     if args.cmd == "tiktok-auth":
         from urllib.parse import unquote
         tiktok.exchange_code(unquote(args.code), redirect)

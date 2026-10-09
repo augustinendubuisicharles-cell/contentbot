@@ -120,3 +120,15 @@ def post(video: Path, caption: str, mode: str = "draft") -> PostResult:
     except (requests.RequestException, RuntimeError, KeyError) as e:
         log.error("TikTok post failed: %s", e)
         return PostResult("tiktok", False, error=str(e))
+
+
+def check(publish_id: str = "") -> None:
+    """Print which TikTok account is connected and, if given, what happened to an upload."""
+    headers = {"Authorization": f"Bearer {_access_token()}"}
+    user = _check(requests.get(f"{API}/user/info/", headers=headers,
+                               params={"fields": "open_id,display_name,avatar_url"}, timeout=30))
+    log.info("TikTok account: %s", user["data"]["user"].get("display_name"))
+    if publish_id:
+        res = _check(requests.post(f"{API}/post/publish/status/fetch/", headers={**headers, "Content-Type": "application/json"},
+                                   json={"publish_id": publish_id}, timeout=30))
+        log.info("Upload %s: %s", publish_id, json.dumps(res["data"]))

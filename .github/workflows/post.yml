@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       edition:
-        description: "morning, evening, report, or tiktok-auth"
+        description: "morning, evening, report, tiktok-auth, or tiktok-check"
         default: "morning"
       code:
         description: "Only for tiktok-auth: the code from TikTok's sign-in page"
@@ -97,6 +97,13 @@ jobs:
           CODE=$(jq -r '.inputs.code' "$GITHUB_EVENT_PATH")
           echo "::add-mask::$CODE"
           python -m contentbot tiktok-auth --code "$CODE"
+
+      - name: Check TikTok
+        if: steps.pick.outputs.edition == 'tiktok-check'
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+        run: python -m contentbot tiktok-check --publish-id "${{ inputs.code }}"
 
       - name: Save TikTok sign-in
         if: always() && hashFiles('data/.tiktok_token.json') != ''
