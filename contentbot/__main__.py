@@ -16,7 +16,7 @@ from . import growth
 from .config import OUT, load_config, load_dotenv
 from .gather import gather
 from .images import find_image
-from .publish import PostResult, meta, youtube
+from .publish import PostResult, meta, tiktok, youtube
 from .rank import rank
 from .video import Scene, compose_frame, concat, render_scene, write_captions
 from .voice import duration, speak, word_timings
@@ -117,6 +117,13 @@ def publish(cfg: dict, built: dict, only: set[str] | None) -> list[PostResult]:
         else:
             log.warning("Instagram credentials missing; skipping")
 
+    if "tiktok" in wanted:
+        if tiktok.configured():
+            caption = f"{script.captions.instagram}\n\n{growth.tag_line(tags)}"
+            results.append(tiktok.post(video, caption, cfg.get("tiktok", {}).get("mode", "draft")))
+        else:
+            log.warning("TikTok credentials missing; skipping")
+
     for r in results:
         growth.log_post({
             "posted_at": datetime.now(timezone.utc).isoformat(), "edition": built["edition"],
@@ -136,6 +143,9 @@ def main(argv=None) -> int:
     run.add_argument("--dry-run", action="store_true", help="build the video but don't post")
     run.add_argument("--platforms", default="", help="comma list to limit posting, e.g. youtube,instagram")
     sub.add_parser("report", help="fetch post stats and write data/report.md")
+    sub.add_parser("tiktok-url", help="print the TikTok sign-in link")
+    ta = sub.add_parser("tiktok-auth", help="connect TikTok with the code from the sign-in page")
+    ta.add_argument("--code", required=True)
     args = ap.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -143,6 +153,14 @@ def main(argv=None) -> int:
     load_dotenv()
     cfg = load_config(args.config)
 
+    redirect = cfg.get("tiktok", {}).get("redirect_uri", "")
+    if args.cmd == "tiktok-url":
+        print(tiktok.auth_url(redirect))
+        return 0
+    if args.cmd == "tiktok-auth":
+        from urllib.parse import unquote
+        tiktok.exchange_code(unquote(args.code), redirect)
+        return 0
     if args.cmd == "report":
         print(growth.report(cfg["timezone"]).read_text())
         return 0

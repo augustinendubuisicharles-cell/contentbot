@@ -3,3 +3,4 @@ out/
 client_secret*.json
 __pycache__/
 *.pyc
+data/.tiktok_token.json

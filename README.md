@@ -53,6 +53,18 @@ Built in:
 Not built, on purpose: fake accounts, bought or bot likes, views or follows, and automated comments
 on other people's posts. YouTube and Meta detect these and restrict or ban accounts, which would undo all of this.
 
+## TikTok
+
+1. At [developers.tiktok.com](https://developers.tiktok.com) create an app, add **Login Kit** and **Content Posting API**,
+   and set the redirect URI, privacy policy and terms URLs to this repo's GitHub Pages site
+   (`https://<user>.github.io/contentbot/`, `.../privacy.html`, `.../terms.html`).
+2. Add `TIKTOK_CLIENT_KEY` and `TIKTOK_CLIENT_SECRET` as secrets.
+3. Run `python -m contentbot tiktok-url` (or ask Claude for the link), sign in, copy the code shown on the page,
+   then run the workflow with edition `tiktok-auth` and paste the code.
+
+Until TikTok audits the app, videos arrive in your TikTok inbox as drafts (`tiktok.mode: draft`) and you tap to publish.
+After the audit, set `tiktok.mode: direct`.
+
 ## Your own voice
 
 Put a 1-2 minute recording of yourself (any common audio format) in `assets/voice/`, and add an

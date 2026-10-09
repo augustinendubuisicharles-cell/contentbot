@@ -75,6 +75,14 @@ platforms:
   youtube: true
   facebook: true
   instagram: true
+  tiktok: true
+
+tiktok:
+  # "draft": video goes to your TikTok inbox and you tap to publish (works before TikTok's audit).
+  # "direct": posts publicly by itself (only after TikTok approves your app).
+  mode: "draft"
+  # Must match a redirect URI registered in your TikTok developer app.
+  redirect_uri: "https://augustinendubuisicharles-cell.github.io/contentbot/"
 
 growth:
   first_comment: true            # post a sources + discussion-question comment on FB and IG

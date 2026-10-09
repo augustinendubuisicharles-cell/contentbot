@@ -10,8 +10,11 @@ on:
   workflow_dispatch:
     inputs:
       edition:
-        description: "morning, evening, or report"
+        description: "morning, evening, report, or tiktok-auth"
         default: "morning"
+      code:
+        description: "Only for tiktok-auth: the code from TikTok's sign-in page"
+        default: ""
       dry_run:
         description: "Build the video without posting"
         type: boolean
@@ -44,6 +47,13 @@ jobs:
           path: ~/.cache/huggingface
           key: kokoro-82m-v1
 
+      - name: Restore TikTok sign-in
+        uses: actions/cache/restore@v4
+        with:
+          path: data/.tiktok_token.json
+          key: tiktok-token-${{ github.run_id }}
+          restore-keys: tiktok-token-
+
       - name: Pick edition
         id: pick
         run: |
@@ -58,7 +68,7 @@ jobs:
           fi
 
       - name: Build and post
-        if: steps.pick.outputs.edition != 'report'
+        if: steps.pick.outputs.edition == 'morning' || steps.pick.outputs.edition == 'evening'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
@@ -71,9 +81,29 @@ jobs:
           META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
           META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
           META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
         run: |
           python -m contentbot run --edition "${{ steps.pick.outputs.edition }}" \
             ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Connect TikTok
+        if: steps.pick.outputs.edition == 'tiktok-auth'
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          CODE: ${{ inputs.code }}
+        run: |
+          echo "::add-mask::$CODE"
+          python -m contentbot tiktok-auth --code "$CODE"
+
+      - name: Save TikTok sign-in
+        if: always() && hashFiles('data/.tiktok_token.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: data/.tiktok_token.json
+          key: tiktok-token-${{ github.run_id }}
 
       - name: Performance report
         if: steps.pick.outputs.edition == 'report'
@@ -87,7 +117,7 @@ jobs:
         run: python -m contentbot report
 
       - name: Keep the video as a download
-        if: always() && steps.pick.outputs.edition != 'report'
+        if: always() && (steps.pick.outputs.edition == 'morning' || steps.pick.outputs.edition == 'evening')
         uses: actions/upload-artifact@v5
         with:
           name: report-${{ steps.pick.outputs.edition }}-${{ github.run_id }}
