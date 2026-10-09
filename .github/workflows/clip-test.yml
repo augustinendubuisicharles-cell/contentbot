@@ -35,6 +35,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
         run: |
+          set -o pipefail
           DIR=$(python -m contentbot.clips --url talk.mp4 --brief "Clip the best money tips. Tag @moneyshow in every caption. No swearing." --name "test money" --count 2 --layout blur | tail -1)
           cat "$DIR/post.md"; cat "$DIR/clips.json"
           for f in "$DIR"/clip*.mp4; do ffprobe -v error -show_entries format=duration:stream=width,height -of csv=p=0 "$f"; done

@@ -53,6 +53,7 @@ jobs:
           COUNT: ${{ inputs.count }}
           LAYOUT: ${{ inputs.layout }}
         run: |
+          set -o pipefail
           DIR=$(python -m contentbot.clips --url "$URL" --brief "$BRIEF" --name "$NAME" --count "$COUNT" --layout "$LAYOUT" | tail -1)
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
           cat "$DIR/post.md" >> "$GITHUB_STEP_SUMMARY"

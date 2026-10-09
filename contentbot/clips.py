@@ -17,6 +17,7 @@ import logging
 import re
 import subprocess
 import sys
+import wave
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -90,13 +91,17 @@ def transcribe(video: Path, model_size: str, max_minutes: float, dest: Path) -> 
     cache = dest / "transcript.json"
     if cache.exists():
         return json.loads(cache.read_text())
+    import numpy as np
     from faster_whisper import WhisperModel
 
     audio = dest / "audio.wav"
     _run(["ffmpeg", "-y", "-i", str(video), "-t", str(int(max_minutes * 60)), "-vn", "-ac", "1", "-ar", "16000",
-          str(audio)])
+          "-c:a", "pcm_s16le", str(audio)])
+    # Decode the WAV ourselves: faster-whisper's own decoder breaks with some PyAV versions.
+    with wave.open(str(audio)) as w:
+        samples = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
     model = WhisperModel(model_size, device="cpu", compute_type="int8")
-    segments, info = model.transcribe(str(audio), word_timestamps=True, vad_filter=True)
+    segments, info = model.transcribe(samples, word_timestamps=True, vad_filter=True)
     log.info("Transcribing %.0f minutes of %s audio with whisper-%s", info.duration / 60, info.language, model_size)
     out = []
     for seg in segments:
