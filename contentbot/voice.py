@@ -26,9 +26,41 @@ def duration(path: Path) -> float:
     return float(out.stdout.strip())
 
 
-async def _edge(text: str, voice: str, dest: Path) -> None:
+async def _edge(text: str, voice: str, dest: Path) -> list[dict]:
+    """Synthesize with edge-tts and return per-word timings (seconds) for captions."""
     import edge_tts
-    await edge_tts.Communicate(text, voice, rate="+8%").save(str(dest))
+    words = []
+    with open(dest, "wb") as f:
+        async for chunk in edge_tts.Communicate(text, voice, rate="+8%", boundary="WordBoundary").stream():
+            if chunk["type"] == "audio":
+                f.write(chunk["data"])
+            elif chunk["type"] == "WordBoundary":
+                start = chunk["offset"] / 1e7
+                words.append({"word": chunk["text"], "start": start, "end": start + chunk["duration"] / 1e7})
+    return words
+
+
+def timings_path(audio: Path) -> Path:
+    return audio.with_suffix(".words.json")
+
+
+def word_timings(audio: Path, text: str) -> list[dict]:
+    """Per-word timings for `audio`: exact from edge-tts, otherwise spread evenly over the clip."""
+    path = timings_path(audio)
+    if path.exists():
+        words = json.loads(path.read_text())
+        if words:
+            return words
+    tokens = text.split()
+    if not tokens:
+        return []
+    total = duration(audio)
+    weights = [len(t) + 2 for t in tokens]
+    scale, t, out = total / sum(weights), 0.0, []
+    for tok, w in zip(tokens, weights):
+        out.append({"word": tok, "start": t, "end": t + w * scale})
+        t += w * scale
+    return out
 
 
 def _clone_voice(key: str) -> str | None:
@@ -89,9 +121,11 @@ def speak(text: str, voice: str, dest: Path) -> Path:
     """
     if _elevenlabs(text, dest):
         return dest
+    timings_path(dest).unlink(missing_ok=True)
     try:
-        asyncio.run(_edge(text, voice, dest))
+        words = asyncio.run(_edge(text, voice, dest))
         if dest.exists() and dest.stat().st_size > 0:
+            timings_path(dest).write_text(json.dumps(words))
             return dest
     except Exception as e:  # edge-tts raises a variety of network errors
         log.warning("edge-tts failed (%s)", e)

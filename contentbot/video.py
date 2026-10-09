@@ -31,6 +31,7 @@ class Scene:
     image: Path | None = None
     kicker: str = ""        # small label above the text, e.g. "1/5"
     credit: str = ""        # small source/credit line
+    narration_text: str = ""  # what's said, for captions
 
 
 def _hex(c: str) -> tuple[int, int, int]:
@@ -94,13 +95,53 @@ def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True, capture_output=True)
 
 
-def render_scene(frame: Path, audio: Path, seconds: float, cfg: dict, dest: Path) -> Path:
+def _ass_time(t: float) -> str:
+    cs = int(round(t * 100))
+    return f"{cs // 360000}:{cs // 6000 % 60:02d}:{cs // 100 % 60:02d}.{cs % 100:02d}"
+
+
+def write_captions(words: list[dict], cfg: dict, dest: Path, per_chunk: int = 3) -> Path:
+    """Burned-in captions, a few words at a time, timed to the narration (sound-off viewers read along)."""
+    W, H = cfg["video"]["width"], cfg["video"]["height"]
+    accent = cfg["brand"]["accent_color"].lstrip("#")
+    ass_accent = f"&H00{accent[4:6]}{accent[2:4]}{accent[0:2]}"  # ASS colours are BGR
+    size = int(W * 0.07)
+    header = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: {W}
+PlayResY: {H}
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Cap,DejaVu Sans,{size},&H00FFFFFF,{ass_accent},&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,2,5,60,60,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    y = int(H * 0.49)
+    lines = []
+    chunks = [words[i:i + per_chunk] for i in range(0, len(words), per_chunk)]
+    for i, chunk in enumerate(chunks):
+        start = chunk[0]["start"]
+        end = chunks[i + 1][0]["start"] if i + 1 < len(chunks) else chunk[-1]["end"] + 0.3
+        text = " ".join(w["word"] for w in chunk).upper().replace("{", "(").replace("}", ")")
+        # Pop in slightly larger, then settle: draws the eye to each new phrase.
+        anim = r"{\pos(%d,%d)\fscx112\fscy112\t(0,120,\fscx100\fscy100)}" % (W // 2, y)
+        lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Cap,,0,0,0,,{anim}{text}")
+    dest.write_text(header + "\n".join(lines) + "\n")
+    return dest
+
+
+def render_scene(frame: Path, audio: Path, seconds: float, cfg: dict, dest: Path,
+                 captions: Path | None = None) -> Path:
     W, H, fps = cfg["video"]["width"], cfg["video"]["height"], cfg["video"]["fps"]
     frames = max(int(seconds * fps), 1)
     zoom = f"zoompan=z='min(zoom+0.0006,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={W}x{H}:fps={fps}"
+    subs = f",ass='{captions.resolve()}'" if captions else ""
     _run([
         "ffmpeg", "-y", "-loop", "1", "-i", str(frame), "-i", str(audio),
-        "-filter_complex", f"[0:v]{zoom},format=yuv420p[v];[1:a]apad,atrim=0:{seconds:.3f},aresample=44100[a]",
+        "-filter_complex", f"[0:v]{zoom}{subs},format=yuv420p[v];[1:a]apad,atrim=0:{seconds:.3f},aresample=44100[a]",
         "-map", "[v]", "-map", "[a]", "-t", f"{seconds:.3f}",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-c:a", "aac", "-b:a", "160k", "-ac", "2",
         str(dest),
@@ -108,17 +149,30 @@ def render_scene(frame: Path, audio: Path, seconds: float, cfg: dict, dest: Path
     return dest
 
 
-def concat(clips: list[Path], dest: Path, music: str = "") -> Path:
+def concat(clips: list[Path], dest: Path, cfg: dict, music: str = "") -> Path:
+    """Join the scenes, add a progress bar along the top, and mix in optional music."""
     listing = dest.with_suffix(".txt")
     listing.write_text("".join(f"file '{c.resolve()}'\n" for c in clips))
-    joined = dest.with_name(dest.stem + "_nomusic.mp4") if music else dest
-    _run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy",
-          "-movflags", "+faststart", str(joined)])
+    joined = dest.with_name(dest.stem + "_joined.mp4")
+    _run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", str(joined)])
+
+    probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+                            str(joined)], capture_output=True, text=True, check=True)
+    total = float(probe.stdout.strip())
+    W, fps = cfg["video"]["width"], cfg["video"]["fps"]
+    accent = cfg["brand"]["accent_color"]
+    # A bar that fills as the video plays: viewers can see how little is left, so they stay.
+    bar = (f"color=c={accent}:s={W}x14:r={fps}:d={total:.3f}[bar];"
+           f"[0:v][bar]overlay=x='-w+w*t/{total:.3f}':y=0:shortest=1[v]")
+    cmd = ["ffmpeg", "-y", "-i", str(joined)]
     if music and Path(music).exists():
-        _run([
-            "ffmpeg", "-y", "-i", str(joined), "-stream_loop", "-1", "-i", music,
-            "-filter_complex", "[1:a]volume=0.12[m];[0:a][m]amix=inputs=2:duration=first:dropout_transition=0[a]",
-            "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
-            "-movflags", "+faststart", str(dest),
-        ])
+        cmd += ["-stream_loop", "-1", "-i", music]
+        audio = ";[1:a]volume=0.12[m];[0:a][m]amix=inputs=2:duration=first:dropout_transition=0[a]"
+        amap = "[a]"
+    else:
+        audio, amap = "", "0:a"
+    cmd += ["-filter_complex", bar + audio, "-map", "[v]", "-map", amap,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-c:a", "aac", "-b:a", "160k",
+            "-movflags", "+faststart", str(dest)]
+    _run(cmd)
     return dest

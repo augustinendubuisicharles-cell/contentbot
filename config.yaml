@@ -5,6 +5,8 @@ brand:
   name: "Daily Brief"            # shown on every frame of the video
   handle: "@yourhandle"          # shown in the outro card
   accent_color: "#E63946"
+  # Said at the end of every video. A fixed sign-off becomes the show's catchphrase.
+  signoff: "That's the news, minus the boring bits. See you next time."
 
 # Your local time zone. Used for the date on screen and for the posting report.
 # The GitHub Actions schedule itself is in UTC; see README "Schedule".

@@ -8,6 +8,7 @@ import argparse
 import json
 import logging
 import sys
+from pathlib import Path
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -17,8 +18,8 @@ from .gather import gather
 from .images import find_image
 from .publish import PostResult, meta, youtube
 from .rank import rank
-from .video import Scene, compose_frame, concat, render_scene
-from .voice import duration, speak
+from .video import Scene, compose_frame, concat, render_scene, write_captions
+from .voice import duration, speak, word_timings
 from .writer import write_script
 
 log = logging.getLogger("contentbot")
@@ -43,31 +44,40 @@ def build(cfg: dict, edition: str) -> dict:
     scenes: list[Scene] = []
     credits: list[str] = []
 
-    scenes.append(Scene(f"{cfg['editions'][edition]['greeting']}. Here's what happened.",
-                        speak(script.intro, voice, run_dir / "a00.mp3"), kicker=edition.upper()))
-    n = len(script.segments)
+    def narrate(text: str, name: str) -> tuple[str, Path]:
+        return text, speak(text, voice, run_dir / name)
+
+    # Cold open: the hook comes before any greeting.
+    text, audio = narrate(f"{script.hook} {script.welcome}", "a00.mp3")
+    scenes.append(Scene(script.hook_text, audio, kicker=edition.upper(), narration_text=text))
     for i, seg in enumerate(script.segments, 1):
         img = find_image(seg.image_query, run_dir / f"img{i:02d}", cfg["images"]["commercial_only"], used)
         credits.append(img.credit)
-        scenes.append(Scene(
-            seg.headline, speak(seg.narration, voice, run_dir / f"a{i:02d}.mp3"), img.path,
-            kicker=f"{i}/{n}", credit=f"Sources: {', '.join(seg.sources[:3])}",
-        ))
-    scenes.append(Scene(f"Follow {cfg['brand']['handle']} for the next edition",
-                        speak(script.outro, voice, run_dir / "a99.mp3"), kicker="THANKS FOR WATCHING"))
+        text, audio = narrate(seg.narration, f"a{i:02d}.mp3")
+        scenes.append(Scene(seg.headline, audio, img.path, credit=f"Sources: {', '.join(seg.sources[:3])}",
+                            narration_text=text))
+    text, audio = narrate(script.outro, "a99.mp3")
+    scenes.append(Scene(cfg["brand"].get("signoff", "See you next time"), audio,
+                        kicker=f"FOLLOW {cfg['brand']['handle']}".upper(), narration_text=text))
 
-    # Fit inside the time limit by trimming the last story if needed.
+    # Fit inside the time limit. Keep the "And finally" payoff: drop the story before it.
     limit = cfg["video"]["max_seconds"]
     durations = [duration(s.narration_audio) + 0.35 for s in scenes]
-    while sum(durations) > limit and len(scenes) > 3:
-        log.info("Report is %.1fs; dropping the last story to fit %ds", sum(durations), limit)
-        del scenes[-2], durations[-2]
+    while sum(durations) > limit and len(scenes) > 4:
+        log.info("Report is %.1fs; dropping a story to fit %ds", sum(durations), limit)
+        del scenes[-3], durations[-3]
+
+    stories_in = scenes[1:-1]
+    for i, scene in enumerate(stories_in, 1):
+        scene.kicker = "AND FINALLY" if i == len(stories_in) and i > 1 else f"{i} OF {len(stories_in)}"
 
     clips = []
     for i, (scene, secs) in enumerate(zip(scenes, durations)):
         frame = compose_frame(scene, cfg, date_str, run_dir / f"f{i:02d}.jpg")
-        clips.append(render_scene(frame, scene.narration_audio, secs, cfg, run_dir / f"c{i:02d}.mp4"))
-    video = concat(clips, run_dir / "report.mp4", cfg["video"].get("background_music", ""))
+        caps = write_captions(word_timings(scene.narration_audio, scene.narration_text), cfg,
+                              run_dir / f"s{i:02d}.ass")
+        clips.append(render_scene(frame, scene.narration_audio, secs, cfg, run_dir / f"c{i:02d}.mp4", caps))
+    video = concat(clips, run_dir / "report.mp4", cfg, cfg["video"].get("background_music", ""))
     log.info("Rendered %s (%.1fs)", video, duration(video))
 
     all_sources = sorted({s for seg in script.segments for s in seg.sources})
@@ -143,7 +153,7 @@ def main(argv=None) -> int:
     if args.dry_run:
         sc = built["script"]
         print(json.dumps({"video": str(built["video"]), "title": sc.captions.youtube_title,
-                          "narration": [sc.intro, *[seg.narration for seg in sc.segments], sc.outro]}, indent=2))
+                          "narration": [f"{sc.hook} {sc.welcome}", *[seg.narration for seg in sc.segments], sc.outro]}, indent=2))
         return 0
     only = {p.strip() for p in args.platforms.split(",") if p.strip()} or None
     results = publish(cfg, built, only)

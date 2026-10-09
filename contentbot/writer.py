@@ -15,35 +15,44 @@ class ScriptError(Exception):
 
 
 class Segment(BaseModel):
-    headline: str = Field(description="On-screen headline, max 8 words")
-    narration: str = Field(description="What the presenter says, 20-30 words, plain spoken English")
+    headline: str = Field(description="On-screen headline, max 7 words, punchy, can tease rather than summarise")
+    narration: str = Field(description="What the presenter says, 18-28 words. First sentence is a hook (a surprising fact, number or twist); then what happened and, in a few words, why it matters to the viewer")
     image_query: str = Field(description="2-4 word search for an openly licensed photo, e.g. 'European Parliament building'. Prefer places, objects or public figures, never graphic content")
     sources: list[str] = Field(description="Outlets that reported it")
 
 
 class Captions(BaseModel):
-    youtube_title: str = Field(description="Under 90 characters, curiosity-driven but accurate, no clickbait")
+    youtube_title: str = Field(description="Under 70 characters. Leads with the most intriguing story as a curiosity gap, accurate, no clickbait")
     youtube_description: str
     facebook: str
-    instagram: str = Field(description="Hook on the first line, short story list, call to follow")
-    first_comment_question: str = Field(description="One open question to start discussion in comments")
+    instagram: str = Field(description="First line is a scroll-stopping hook, then a short story list, then a call to follow")
+    first_comment_question: str = Field(description="One open, slightly playful question that invites opinions in the comments")
 
 
 class Script(BaseModel):
-    intro: str = Field(description="Opening line, max 15 words, includes the greeting and date")
-    segments: list[Segment]
-    outro: str = Field(description="Closing line, max 15 words, asks viewers to follow for the next edition")
+    hook: str = Field(description="Spoken cold open, max 14 words, said before any greeting. The single most surprising fact of the day, or a tease of the 'and finally' story, phrased so people must keep watching. No 'hello', no 'welcome'")
+    hook_text: str = Field(description="On-screen version of the hook, max 6 words, big and bold")
+    welcome: str = Field(description="Max 9 words straight after the hook: greeting, show name, day. e.g. 'Good morning, it's Friday and this is Daily Brief.'")
+    segments: list[Segment] = Field(description="Most important story first. The LAST segment is the 'And finally' story: the quirkiest, most surprising or funniest item, which pays off the hook if the hook teased it")
+    outro: str = Field(description="Max 22 words: one line teasing what to watch for in the next edition, then the signature sign-off exactly as given")
     captions: Captions
     hashtags: list[str] = Field(description="Relevant hashtags without the # sign, mix of broad and story-specific")
 
 
 PROMPT = """You are the writer for "{brand}", a {edition} news video report posted as a YouTube Short, Facebook Reel and Instagram Reel.
-Date: {date}. Greeting: "{greeting}".
+Date: {date}. Greeting: "{greeting}". Next edition: {next_edition}. Signature sign-off: "{signoff}".
 
-Pick the {n} most important and interesting stories below (prefer stories covered by several outlets, and those marked TRENDING), and write:
-- a spoken script that fits in {seconds} seconds total (about {words} words across intro, segments and outro),
+Pick the {n} most important and interesting stories below (prefer stories covered by several outlets, and those marked TRENDING), plus make sure the last one is a light, quirky "And finally" story if there is one, and write:
+- a spoken script that fits in {seconds} seconds total: about {words} words across hook, welcome, segments and outro. Count carefully; going over means a story gets cut,
 - facts exactly as reported: never state anything that isn't in the material, and attribute contested claims ("Reuters reports..."),
 - captions for each platform, and up to {max_tags} hashtags.
+
+How to keep people watching and coming back:
+- The first three seconds decide everything. The hook is the most surprising or curious thing in today's news, told in plain words. Never start with a greeting.
+- Open a loop: if the hook teases the "And finally" story, don't explain it until the end.
+- Every segment starts with its most interesting detail, not background. Short sentences, active verbs, numbers where they help.
+- Link segments with quick, natural transitions so it flows like one story, not a list.
+- End by teasing the next edition and the signature sign-off, so the ending feels like a ritual people return for.
 
 Voice and tone: {style}
 Read the room: stories involving deaths, violence, disasters, abuse or serious illness are told straight and with respect, with no jokes about them or the people affected. Save the humour for the lighter stories, the absurd details, and the links between segments. Never mock someone for who they are.
@@ -82,6 +91,8 @@ def _claude_script(stories: list[Story], cfg: dict, edition: str, date_str: str)
         edition=edition,
         date=date_str,
         greeting=cfg["editions"][edition]["greeting"],
+        next_edition="this evening" if edition == "morning" else "tomorrow morning",
+        signoff=cfg["brand"].get("signoff", "Stay curious."),
         style=wcfg.get("style", "Clear and neutral."),
         n=vcfg["stories"],
         seconds=vcfg["max_seconds"] - 8,
@@ -118,17 +129,20 @@ def _fallback_script(stories: list[Story], cfg: dict, edition: str, date_str: st
             extra = " ".join(lead.summary.split()[: 26 - len(words)])
             narration += " " + extra.rstrip(".,;:") + "."
         segments.append(Segment(
-            headline=" ".join(words[:8]),
+            headline=" ".join(words[:7]),
             narration=narration,
             image_query=" ".join(sorted(s.words, key=len, reverse=True)[:3]),
             sources=s.sources[:3],
         ))
     titles = "\n".join(f"• {seg.headline}" for seg in segments)
     tags = ["news", "dailynews", "breakingnews", "worldnews", "shorts"]
+    first = segments[0].headline if segments else "Today's news"
     return Script(
-        intro=f"{greeting}, here's your {brand} for {date_str}.",
+        hook=f"{first}. Here's what you need to know.",
+        hook_text=first,
+        welcome=f"{greeting}, this is {brand}.",
         segments=segments,
-        outro="Follow for your next update.",
+        outro=cfg["brand"].get("signoff", "Follow for your next update."),
         captions=Captions(
             youtube_title=f"{brand} {edition.title()} | {date_str}",
             youtube_description=f"Today's top stories:\n{titles}",
