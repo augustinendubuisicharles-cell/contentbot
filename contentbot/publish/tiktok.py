@@ -22,8 +22,8 @@ from . import PostResult
 log = logging.getLogger(__name__)
 API = "https://open.tiktokapis.com/v2"
 TOKEN_FILE = DATA / ".tiktok_token.json"
-# video.publish (direct posting) is only needed for tiktok.mode "direct"; add it back after TikTok approves the app.
-SCOPES = "user.info.basic,video.upload"
+# video.publish is needed for tiktok.mode "direct" (enable Direct Post in the developer app first).
+SCOPES = "user.info.basic,video.upload,video.publish"
 
 
 def configured() -> bool:
@@ -93,12 +93,25 @@ def post(video: Path, caption: str, mode: str = "draft") -> PostResult:
     try:
         headers = {"Authorization": f"Bearer {_access_token()}", "Content-Type": "application/json; charset=UTF-8"}
         if mode == "direct":
-            creator = _check(requests.post(f"{API}/post/publish/creator_info/query/", headers=headers, timeout=30))
+            try:
+                creator = _check(requests.post(f"{API}/post/publish/creator_info/query/", headers=headers, timeout=30))
+            except RuntimeError as e:
+                # Not signed in with the publish permission yet: send to the inbox instead.
+                log.warning("TikTok direct posting unavailable (%s); sending to inbox", e)
+                return post(video, caption, "draft")
             options = creator["data"].get("privacy_level_options", [])
             privacy = "PUBLIC_TO_EVERYONE" if "PUBLIC_TO_EVERYONE" in options else (options or ["SELF_ONLY"])[0]
             body = {"post_info": {"title": caption[:2200], "privacy_level": privacy, "is_aigc": True,
                                   "brand_content_toggle": False}, "source_info": source}
-            init = _check(requests.post(f"{API}/post/publish/video/init/", headers=headers, json=body, timeout=60))
+            try:
+                init = _check(requests.post(f"{API}/post/publish/video/init/", headers=headers, json=body, timeout=60))
+            except RuntimeError as e:
+                if "unaudited" not in str(e) or privacy == "SELF_ONLY":
+                    raise
+                # Until TikTok audits the app, direct posts must be private ("Only me").
+                log.warning("TikTok app not audited yet; posting as 'Only me'")
+                body["post_info"]["privacy_level"] = "SELF_ONLY"
+                init = _check(requests.post(f"{API}/post/publish/video/init/", headers=headers, json=body, timeout=60))
         else:
             init = _check(requests.post(f"{API}/post/publish/inbox/video/init/", headers=headers,
                                         json={"source_info": source}, timeout=60))
@@ -114,9 +127,13 @@ def post(video: Path, caption: str, mode: str = "draft") -> PostResult:
             if status == "FAILED":
                 raise RuntimeError(res["data"].get("fail_reason", "publish failed"))
             time.sleep(10)
-        note = "in your TikTok inbox, tap to publish" if status == "SEND_TO_USER_INBOX" else status.lower()
-        log.info("TikTok: %s", note)
-        return PostResult("tiktok", True, publish_id, "")
+        if status not in ("SEND_TO_USER_INBOX", "PUBLISH_COMPLETE"):
+            raise RuntimeError(f"upload not finished (status {status or 'unknown'})")
+        note = "in your TikTok inbox, tap to publish" if status == "SEND_TO_USER_INBOX" else "published"
+        post_ids = res["data"].get("publicaly_available_post_id") or []
+        url = f"https://www.tiktok.com/video/{post_ids[0]}" if post_ids else ""
+        log.info("TikTok: %s %s", note, url)
+        return PostResult("tiktok", True, publish_id, url)
     except (requests.RequestException, RuntimeError, KeyError) as e:
         log.error("TikTok post failed: %s", e)
         return PostResult("tiktok", False, error=str(e))

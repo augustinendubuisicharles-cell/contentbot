@@ -80,7 +80,7 @@ platforms:
 tiktok:
   # "draft": video goes to your TikTok inbox and you tap to publish (works before TikTok's audit).
   # "direct": posts publicly by itself (only after TikTok approves your app).
-  mode: "draft"
+  mode: "direct"
   # Must match a redirect URI registered in your TikTok developer app.
   redirect_uri: "https://augustinendubuisicharles-cell.github.io/contentbot/"
 
