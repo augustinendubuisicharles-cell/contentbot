@@ -93,8 +93,8 @@ jobs:
         env:
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
-          CODE: ${{ inputs.code }}
         run: |
+          CODE=$(jq -r '.inputs.code' "$GITHUB_EVENT_PATH")
           echo "::add-mask::$CODE"
           python -m contentbot tiktok-auth --code "$CODE"
 
