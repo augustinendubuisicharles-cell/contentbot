@@ -82,3 +82,38 @@ voice (any edge-tts voice, e.g. `en-GB-RyanNeural`, `en-NG-AbeoNeural`), optiona
 Only Creative Commons and public-domain images from Openverse and Wikimedia Commons are used,
 filtered to licences that allow commercial use. When nothing suitable is found, a branded title card is used instead.
 News-site photos are never downloaded, since they're usually copyrighted.
+
+## Clipping campaigns (Whop Content Rewards, Vyro)
+
+Brands and creators pay per view for short clips of their own videos. ContentBot can do the cutting:
+
+1. Join a campaign and copy its video link and brief.
+2. In GitHub, open **Actions → Make campaign clips → Run workflow**, paste the link and the brief, and run it.
+3. When it finishes, each clip arrives in your Telegram with its caption (see "Telegram" below). Without Telegram
+   set up, open the new release under **Releases** instead: each `clipNN.mp4` is ready to post, and `post.md`
+   has the caption to paste for each one (with `#ad` and the hashtags).
+4. Post the clips, turn on the platform's paid-partnership label if the brief asks for it, and submit the post links on the campaign page.
+
+What it does: downloads the video, transcribes it for free with faster-whisper, asks Claude for the best
+20–60 second moments that fit the brief, then cuts each one to 9:16 with an on-screen hook, word-by-word
+captions and an `#ad` label. Settings are under `clips:` in `config.yaml`. Locally:
+`pip install -r requirements-clips.txt` then `python -m contentbot.clips --url <link or file> --brief brief.txt`.
+
+Rules worth knowing:
+- Only clip footage the campaign gives you permission to use. YouTube often blocks downloads from GitHub's servers;
+  if a link fails, use the campaign's Google Drive or Dropbox link, or upload the file to Drive and share it.
+- Posting and link submission stay manual: Whop and Vyro have no submission API for clippers, and views from
+  bots, view swaps or giveaways get accounts banned. Post each clip once per account, not many near-copies.
+- Releases on a public repo can be seen by anyone. Delete old releases once you have posted the clips.
+
+## Telegram
+
+Get every finished video (news reports and campaign clips) in a Telegram chat, with the caption as a separate
+message you can copy, so you can post from your phone.
+
+1. In Telegram, message **@BotFather**, send `/newbot`, and follow the steps. It gives you a token.
+2. Open your new bot and press **Start** (bots can only message people who have messaged them first).
+3. Message **@userinfobot** to get your chat id (a number).
+4. Add both as GitHub secrets: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+
+Turn it off for news reports with `platforms: telegram: false` in `config.yaml`. Telegram bots can send files up to 50 MB.

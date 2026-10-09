@@ -16,7 +16,7 @@ from . import growth
 from .config import OUT, load_config, load_dotenv
 from .gather import gather
 from .images import find_image
-from .publish import PostResult, meta, tiktok, youtube
+from .publish import PostResult, meta, telegram, tiktok, youtube
 from .rank import rank
 from .video import Scene, compose_frame, concat, render_scene, write_captions
 from .voice import duration, speak, word_timings
@@ -123,6 +123,13 @@ def publish(cfg: dict, built: dict, only: set[str] | None) -> list[PostResult]:
             results.append(tiktok.post(video, caption, cfg.get("tiktok", {}).get("mode", "draft")))
         else:
             log.warning("TikTok credentials missing; skipping")
+
+    if "telegram" in wanted:
+        if telegram.configured():
+            caption = f"{script.captions.instagram}\n\n{growth.tag_line(tags)}"
+            results.append(telegram.send_video(video, script.captions.youtube_title, caption))
+        else:
+            log.warning("Telegram credentials missing; skipping")
 
     for r in results:
         growth.log_post({
