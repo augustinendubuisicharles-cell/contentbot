@@ -21,7 +21,9 @@ editions:
     greeting: "Good evening"
 
 video:
-  max_seconds: 60
+  # TikTok Creator Rewards only pays for videos over 1 minute, so reports run 62-80s.
+  min_seconds: 62                # short reports hold on the sign-off to reach this
+  max_seconds: 80
   stories: 5                     # stories per report
   width: 1080
   height: 1920

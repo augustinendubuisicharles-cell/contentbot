@@ -67,6 +67,10 @@ def build(cfg: dict, edition: str) -> dict:
     while sum(durations) > limit and len(scenes) > 4:
         log.info("Report is %.1fs; dropping a story to fit %ds", sum(durations), limit)
         del scenes[-3], durations[-3]
+    # Reach the minimum (over 1 minute for TikTok rewards) by holding on the sign-off.
+    short = cfg["video"].get("min_seconds", 0) - sum(durations)
+    if short > 0:
+        durations[-1] += short
 
     stories_in = scenes[1:-1]
     for i, scene in enumerate(stories_in, 1):
