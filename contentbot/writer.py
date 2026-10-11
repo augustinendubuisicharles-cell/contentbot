@@ -147,7 +147,7 @@ def _fallback_script(stories: list[Story], cfg: dict, edition: str, date_str: st
             youtube_title=f"{brand} {edition.title()} | {date_str}",
             youtube_description=f"Today's top stories:\n{titles}",
             facebook=f"{brand}, {date_str}\n{titles}",
-            instagram=f"Your {edition} news in 60 seconds\n{titles}\nFollow for daily updates.",
+            instagram=f"Your {edition} news in about a minute\n{titles}\nFollow for daily updates.",
             first_comment_question="Which of these stories matters most to you?",
         ),
         hashtags=tags,

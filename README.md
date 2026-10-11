@@ -8,7 +8,7 @@ and an Instagram Reel.
 gather  →  rank  →  write  →  images + voice  →  video  →  post  →  track
 RSS, Reddit,  group same   Claude writes   Openverse /         ffmpeg   YouTube,   views per post,
 X, Google     story, score script, captions Wikimedia CC        9:16     Facebook,  best posting
-Trends        by coverage  and hashtags     photos, edge-tts    60s      Instagram  hours
+Trends        by coverage  and hashtags     photos, edge-tts    62-80s   Instagram  hours
 ```
 
 ## Run it locally
